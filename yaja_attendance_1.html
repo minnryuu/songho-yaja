@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>야자 출결 체크</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<style>
+  :root{
+    --bg: #EEF1F4;
+    --card: #FFFFFF;
+    --ink: #1E293B;
+    --ink-soft: #64748B;
+    --line: #DDE3EA;
+    --accent: #0F766E;
+    --accent-soft: #E4F3F1;
+    --present: #15803D;
+    --present-bg: #E7F5EC;
+    --late: #B45309;
+    --late-bg: #FDF0DE;
+    --absent: #B91C1C;
+    --absent-bg: #FBE8E8;
+    --none: #94A3B8;
+    --none-bg: #F1F3F5;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .app{ max-width: 1120px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    flex-wrap: wrap; gap: 14px;
+    margin-bottom: 18px;
+  }
+  .brand{ display:flex; align-items:baseline; gap:10px; }
+  .brand .mark{
+    width: 34px; height: 34px; border-radius: 9px;
+    background: var(--accent); color:#fff; display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size: 15px; flex-shrink:0;
+  }
+  .brand h1{ font-size: 19px; font-weight: 800; margin:0; letter-spacing:-0.2px; }
+  .brand .sub{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+
+  .controls{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  input[type="date"], select, input[type="number"], input[type="text"]{
+    font-family: inherit; font-size: 14px; padding: 8px 10px;
+    border-radius: 8px; border: 1px solid var(--line); background:#fff; color:var(--ink);
+  }
+  .tabs{ display:flex; background:#fff; border:1px solid var(--line); border-radius: 10px; padding:3px; }
+  .tab-btn{
+    border:none; background:transparent; padding:8px 16px; border-radius:8px;
+    font-family:inherit; font-size:13.5px; font-weight:600; color:var(--ink-soft); cursor:pointer;
+  }
+  .tab-btn.active{ background: var(--accent); color:#fff; }
+
+  .hallbar{ display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+  .hall-btn{
+    border:1px solid var(--line); background:#fff; padding:9px 16px; border-radius: 10px;
+    font-family:inherit; font-size:13.5px; font-weight:700; color: var(--ink-soft); cursor:pointer;
+  }
+  .hall-btn.active{ background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+  .card{
+    background: var(--card); border:1px solid var(--line); border-radius: 14px;
+    padding: 20px; margin-bottom: 18px;
+  }
+
+  .date-banner{
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
+    margin-bottom: 18px;
+  }
+  .date-banner .day-label{ font-size:15px; font-weight:700; }
+  .day-label .dow{ color: var(--accent); }
+  .stat-row{ display:flex; gap:10px; flex-wrap:wrap; }
+  .stat-pill{
+    font-size:12.5px; font-weight:600; padding:6px 12px; border-radius:999px;
+    display:flex; align-items:center; gap:6px; background:var(--none-bg); color:var(--ink-soft);
+  }
+  .stat-pill b{ font-size:13px; }
+  .stat-pill.present{ background:var(--present-bg); color:var(--present); }
+  .stat-pill.late{ background:var(--late-bg); color:var(--late); }
+  .stat-pill.absent{ background:var(--absent-bg); color:var(--absent); }
+
+  .no-school{ text-align:center; padding: 50px 20px; color: var(--ink-soft); }
+  .no-school .big{ font-size: 32px; margin-bottom:10px; }
+
+  .teacher-desk{
+    text-align:center; font-size:12px; color: var(--ink-soft); font-weight:700;
+    letter-spacing: 2px; padding: 8px; margin-bottom: 18px;
+    border: 1px dashed var(--line); border-radius: 10px; background:#FAFBFC;
+  }
+
+  .seat-grid{ display:grid; gap: 10px; }
+  .cell{ min-height: 96px; }
+  .cell.aisle-space{ visibility:hidden; }
+  .seat{
+    border:1px solid var(--line); border-radius: 12px; padding: 10px 10px 8px;
+    background:#FAFBFC; min-height: 96px; height:100%; display:flex; flex-direction:column; gap:6px;
+  }
+  .seat.empty-seat{ align-items:center; justify-content:center; color:#B7C0CA; background:#F4F6F8; font-size:12px; }
+  .seat.off{ background:#F4F6F8; opacity:0.65; }
+  .seat-top{ display:flex; align-items:center; justify-content:space-between; }
+  .seat-no{ font-size:10.5px; color: var(--ink-soft); font-weight:700; }
+  .seat-name{ font-size:14px; font-weight:800; }
+  .off-tag{ font-size:10px; color:var(--ink-soft); font-weight:700; }
+  .period-row{ display:flex; gap:6px; margin-top:auto; }
+  .period-btn{
+    flex:1; border:none; border-radius: 8px; padding:6px 4px; font-family:inherit;
+    font-size:11px; font-weight:700; cursor:pointer; background: var(--none-bg); color: var(--none);
+    display:flex; flex-direction:column; align-items:center; gap:1px; line-height:1.2;
+  }
+  .period-btn .p-label{ font-size:9px; opacity:0.85; }
+  .period-btn.present{ background: var(--present-bg); color: var(--present); }
+  .period-btn.late{ background: var(--late-bg); color: var(--late); }
+  .period-btn.absent{ background: var(--absent-bg); color: var(--absent); }
+  .period-btn:active{ transform: scale(0.96); }
+
+  /* Editor grid */
+  .editor-grid{ display:grid; gap: 8px; margin-bottom: 10px; }
+  .editor-cell{
+    min-height: 60px; border-radius: 10px; border: 1.5px dashed var(--line);
+    background: #FAFBFC; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-size:11px; color:#B7C0CA; font-weight:700; gap:2px; text-align:center; padding:4px;
+  }
+  .editor-cell.seat-empty{ border-style: solid; border-color: var(--line); background:#fff; color: var(--ink-soft); }
+  .editor-cell.seat-taken{ border-style: solid; border-color: var(--accent); background: var(--accent-soft); color: var(--accent); cursor:not-allowed; }
+  .editor-cell .en{ font-size:13px; }
+
+  .section-title{ font-size:14px; font-weight:800; margin: 0 0 12px; }
+  .form-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom: 12px; }
+  .form-row input[type="text"]{ width:130px; }
+  .day-check-group{ display:flex; gap:4px; }
+  .day-check{
+    width:32px; height:32px; border-radius:8px; border:1px solid var(--line); background:#fff;
+    font-size:12.5px; font-weight:700; cursor:pointer; color: var(--ink-soft);
+  }
+  .day-check.on{ background: var(--accent); border-color:var(--accent); color:#fff; }
+  .btn{
+    border:none; border-radius:8px; padding:9px 16px; font-family:inherit; font-size:13.5px;
+    font-weight:700; cursor:pointer; background: var(--accent); color:#fff;
+  }
+  .btn.ghost{ background:#fff; border:1px solid var(--line); color: var(--ink); }
+  .btn.small{ padding:6px 10px; font-size:12px; }
+  .btn.danger{ background:#fff; color: var(--absent); border:1px solid var(--absent-bg); }
+  .btn:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  table{ width:100%; border-collapse: collapse; font-size:13.5px; }
+  th, td{ text-align:left; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+  th{ color: var(--ink-soft); font-size:12px; font-weight:700; }
+  tr:last-child td{ border-bottom:none; }
+  .badge{ display:inline-flex; padding:4px 9px; border-radius:999px; font-size:11.5px; font-weight:700; background: var(--none-bg); color: var(--none); }
+  .badge.present{ background: var(--present-bg); color: var(--present); }
+  .badge.late{ background: var(--late-bg); color: var(--late); }
+  .badge.absent{ background: var(--absent-bg); color: var(--absent); }
+  .badge.hall{ background: var(--accent-soft); color: var(--accent); }
+  .row-actions{ display:flex; gap:6px; }
+  .empty-state{ text-align:center; padding: 40px 10px; color: var(--ink-soft); font-size:13.5px; }
+  .hint{ font-size:12px; color: var(--ink-soft); margin: -4px 0 14px; }
+  .settings-line{ display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+  .settings-line label{ font-size:13px; font-weight:700; color: var(--ink-soft); }
+  .loading{ text-align:center; padding:60px; color:var(--ink-soft); }
+  .filter-row{ display:flex; gap:8px; margin-bottom:14px; }
+  .legend{ display:flex; gap:14px; font-size:12px; color:var(--ink-soft); margin-bottom:14px; flex-wrap:wrap; }
+  .legend span{ display:flex; align-items:center; gap:5px; }
+  .legend i{ width:12px; height:12px; border-radius:4px; display:inline-block; }
+
+  .lock-wrap{ display:flex; align-items:center; justify-content:center; padding: 50px 20px; }
+  .lock-box{ max-width: 320px; width:100%; text-align:center; }
+  .lock-box .icon{ font-size: 30px; margin-bottom: 10px; }
+  .lock-box h3{ font-size:15px; font-weight:800; margin: 0 0 6px; }
+  .lock-box p{ font-size:12.5px; color: var(--ink-soft); margin: 0 0 16px; }
+  .lock-box input[type="password"]{
+    width:100%; font-family:inherit; font-size:14px; padding: 10px 12px; border-radius:8px;
+    border:1px solid var(--line); margin-bottom:10px; text-align:center; letter-spacing:2px;
+  }
+  .lock-box .btn{ width:100%; }
+  .lock-error{ color: var(--absent); font-size:12px; margin: -4px 0 10px; min-height:14px; }
+  .pw-change-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .pw-change-row input[type="password"]{ width: 150px; }
+  .pw-msg{ font-size:12px; margin-top:8px; min-height:14px; }
+  .pw-msg.ok{ color: var(--present); }
+  .pw-msg.err{ color: var(--absent); }
+</style>
+</head>
+<body>
+<div class="app" id="app"><div class="loading">불러오는 중...</div></div>
+
+<script>
+const DOW = ['일','월','화','수','목','금','토'];
+const PARTICIPATING_DAYS = ['월','화','수','목','금'];
+const STATUS_ORDER = ['none','present','late','absent'];
+const STATUS_LABEL = { none:'미체크', present:'출석', late:'지각', absent:'결석' };
+
+function defaultLayout(rows, cols){
+  return Array.from({length: rows}, () => Array.from({length: cols}, () => 'seat'));
+}
+
+let state = {
+  halls: [
+    { id:'hall1', name:'솔못서당1', rows:5, cols:6, layout: defaultLayout(5,6) },
+    { id:'hall2', name:'솔못서당2', rows:5, cols:6, layout: defaultLayout(5,6) },
+  ],
+  students: [], // {id, name, hallId, seatKey, days:[]}
+  selectedDate: new Date().toISOString().slice(0,10),
+  selectedHallId: 'hall1',
+  attendance: {},
+  tab: 'check',
+  editingId: null,
+  listFilter: 'all',
+  loaded: false,
+  adminPassword: 'songhoyaja26',
+  adminUnlocked: false,
+  lockError: '',
+};
+
+function uid(){ return 's_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function seatKey(r,c){ return 'r'+r+'c'+c; }
+
+async function safeGet(key, fallback, shared){
+  try{
+    const res = await window.storage.get(key, shared);
+    if(!res || res.value === undefined || res.value === null) return fallback;
+    return JSON.parse(res.value);
+  }catch(e){ return fallback; }
+}
+async function safeSet(key, value, shared){
+  try{ await window.storage.set(key, JSON.stringify(value), shared); }
+  catch(e){ console.error('저장 실패', key, e); }
+}
+
+async function loadAll(){
+  const loadedHalls = await safeGet('halls', null, true);
+  if(loadedHalls) state.halls = loadedHalls;
+  state.students = await safeGet('students', [], true);
+  state.attendance = await safeGet('attendance:' + state.selectedDate, {}, true);
+  const loadedPw = await safeGet('adminPassword', null, true);
+  if(loadedPw) state.adminPassword = loadedPw;
+  state.loaded = true;
+  render();
+  if(!loadedHalls) await saveHalls();
+  if(!loadedPw) await safeSet('adminPassword', state.adminPassword, true);
+}
+async function saveHalls(){ await safeSet('halls', state.halls, true); }
+async function saveStudents(){ await safeSet('students', state.students, true); }
+async function loadAttendanceForDate(){
+  state.attendance = await safeGet('attendance:' + state.selectedDate, {}, true);
+  render();
+}
+
+function tryUnlock(pw){
+  if(pw === state.adminPassword){
+    state.adminUnlocked = true;
+    state.lockError = '';
+  } else {
+    state.lockError = '비밀번호가 올바르지 않습니다.';
+  }
+  render();
+}
+
+async function changeAdminPassword(current, next, confirmNext){
+  const msgEl = document.getElementById('pwMsg');
+  if(current !== state.adminPassword){
+    if(msgEl){ msgEl.textContent = '현재 비밀번호가 올바르지 않습니다.'; msgEl.className = 'pw-msg err'; }
+    return;
+  }
+  if(!next || next.length < 4){
+    if(msgEl){ msgEl.textContent = '새 비밀번호는 4자 이상으로 입력해 주세요.'; msgEl.className = 'pw-msg err'; }
+    return;
+  }
+  if(next !== confirmNext){
+    if(msgEl){ msgEl.textContent = '새 비밀번호가 서로 일치하지 않습니다.'; msgEl.className = 'pw-msg err'; }
+    return;
+  }
+  state.adminPassword = next;
+  await safeSet('adminPassword', state.adminPassword, true);
+  if(msgEl){ msgEl.textContent = '비밀번호가 변경되었습니다.'; msgEl.className = 'pw-msg ok'; }
+  document.getElementById('pwCurrent').value = '';
+  document.getElementById('pwNext').value = '';
+  document.getElementById('pwConfirm').value = '';
+}
+
+function getHall(id){ return state.halls.find(h => h.id === id); }
+function dowOf(dateStr){ return DOW[new Date(dateStr + 'T00:00:00').getDay()]; }
+function formatDateLabel(dateStr){
+  const d = new Date(dateStr + 'T00:00:00');
+  return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
+}
+
+// returns [{r,c,key,no}] in reading order for seat cells only
+function seatOrder(hall){
+  const list = [];
+  for(let r=0;r<hall.rows;r++){
+    for(let c=0;c<hall.cols;c++){
+      if(hall.layout[r][c] === 'seat') list.push({ r, c, key: seatKey(r,c) });
+    }
+  }
+  list.forEach((s,i) => s.no = i+1);
+  return list;
+}
+function occupantsAtSeat(hallId, key, excludeId){
+  return state.students.filter(s => s.hallId === hallId && s.seatKey === key && s.id !== excludeId);
+}
+function occupantForToday(hallId, key, dow, excludeId){
+  return state.students.find(s => s.hallId === hallId && s.seatKey === key && s.id !== excludeId && s.days.includes(dow));
+}
+function seatConflicts(hallId, key, days, excludeId){
+  const conflicts = [];
+  occupantsAtSeat(hallId, key, excludeId).forEach(s => {
+    const overlap = s.days.filter(d => days.includes(d));
+    if(overlap.length > 0) conflicts.push({ name: s.name, days: overlap });
+  });
+  return conflicts;
+}
+
+function cycleStatus(cur){
+  const idx = STATUS_ORDER.indexOf(cur || 'none');
+  return STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
+}
+async function setStatus(studentId, period){
+  const cur = (state.attendance[studentId] && state.attendance[studentId][period]) || 'none';
+  const next = cycleStatus(cur);
+  if(!state.attendance[studentId]) state.attendance[studentId] = { p1:'none', p2:'none' };
+  state.attendance[studentId][period] = next;
+  render();
+  await safeSet('attendance:' + state.selectedDate, state.attendance, true);
+}
+
+async function toggleEditorCell(hallId, r, c){
+  const hall = getHall(hallId);
+  const cur = hall.layout[r][c];
+  if(cur === 'seat'){
+    const occ = occupantsAtSeat(hallId, seatKey(r,c));
+    if(occ.length > 0){ alert(`이 자리는 ${occ.map(o=>o.name).join(', ')} 학생이 배정되어 있어요. 통로로 바꾸려면 먼저 학생 명단에서 삭제하거나 다른 자리로 옮겨주세요.`); return; }
+    hall.layout[r][c] = 'aisle';
+  } else {
+    hall.layout[r][c] = 'seat';
+  }
+  render();
+  await saveHalls();
+}
+
+async function applyGridSize(hallId, rows, cols){
+  rows = Number(rows); cols = Number(cols);
+  if(!rows || !cols || rows < 1 || cols < 1){ alert('행/열 수를 올바르게 입력해 주세요.'); render(); return; }
+  const hall = getHall(hallId);
+  // check for students outside new bounds
+  const affected = state.students.filter(s => {
+    if(s.hallId !== hallId) return false;
+    const m = s.seatKey.match(/^r(\d+)c(\d+)$/);
+    const r = Number(m[1]), c = Number(m[2]);
+    return r >= rows || c >= cols;
+  });
+  if(affected.length > 0){
+    alert(`격자를 줄이면 범위 밖에 있는 ${affected.map(s=>s.name).join(', ')} 학생의 좌석이 사라져요. 먼저 해당 학생을 다른 자리로 옮기거나 삭제해 주세요.`);
+    render(); return;
+  }
+  const newLayout = [];
+  for(let r=0;r<rows;r++){
+    const row = [];
+    for(let c=0;c<cols;c++){
+      row.push((hall.layout[r] && hall.layout[r][c]) ? hall.layout[r][c] : 'seat');
+    }
+    newLayout.push(row);
+  }
+  hall.rows = rows; hall.cols = cols; hall.layout = newLayout;
+  render();
+  await saveHalls();
+}
+
+async function addStudent(name, hallId, key, days){
+  if(!name || !name.trim()){ alert('이름을 입력해 주세요.'); return; }
+  if(!key){ alert('좌석을 선택해 주세요.'); return; }
+  if(days.length === 0){ alert('참여 요일을 하나 이상 선택해 주세요.'); return; }
+  const conflicts = seatConflicts(hallId, key, days, null);
+  if(conflicts.length > 0){
+    alert(`이 좌석은 이미 ${conflicts.map(c=>`${c.name}(${c.days.join(',')})`).join(', ')} 학생이 사용 중이라 겹치는 요일에는 배정할 수 없어요.`);
+    return;
+  }
+  state.students.push({ id: uid(), name: name.trim(), hallId, seatKey: key, days });
+  render();
+  await saveStudents();
+}
+async function deleteStudent(id){
+  const s = state.students.find(x => x.id === id);
+  if(!s) return;
+  if(!confirm(`${s.name} 학생을 명단에서 삭제할까요?`)) return;
+  state.students = state.students.filter(x => x.id !== id);
+  render();
+  await saveStudents();
+}
+async function saveEdit(id, name, hallId, key, days){
+  if(!name || !name.trim()){ alert('이름을 입력해 주세요.'); return; }
+  if(!key){ alert('좌석을 선택해 주세요.'); return; }
+  if(days.length === 0){ alert('참여 요일을 하나 이상 선택해 주세요.'); return; }
+  const conflicts = seatConflicts(hallId, key, days, id);
+  if(conflicts.length > 0){
+    alert(`이 좌석은 이미 ${conflicts.map(c=>`${c.name}(${c.days.join(',')})`).join(', ')} 학생이 사용 중이라 겹치는 요일에는 배정할 수 없어요.`);
+    return;
+  }
+  const s = state.students.find(x => x.id === id);
+  s.name = name.trim(); s.hallId = hallId; s.seatKey = key; s.days = days;
+  state.editingId = null;
+  render();
+  await saveStudents();
+}
+
+function countStats(hallId, period){
+  const counts = { present:0, late:0, absent:0, none:0, total:0 };
+  const dow = dowOf(state.selectedDate);
+  state.students.filter(s => s.hallId === hallId).forEach(s => {
+    if(!s.days.includes(dow)) return;
+    counts.total++;
+    const st = (state.attendance[s.id] && state.attendance[s.id][period]) || 'none';
+    counts[st]++;
+  });
+  return counts;
+}
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function render(){
+  const app = document.getElementById('app');
+  if(!state.loaded){ app.innerHTML = '<div class="loading">불러오는 중...</div>'; return; }
+
+  app.innerHTML = `
+    <div class="topbar">
+      <div class="brand">
+        <div class="mark">夜</div>
+        <div><h1>야자 출결 체크</h1><div class="sub">솔못서당 좌석표 기반 출결 관리</div></div>
+      </div>
+      <div class="controls">
+        <input type="date" id="datePicker" value="${state.selectedDate}" />
+        <div class="tabs">
+          <button class="tab-btn ${state.tab==='check'?'active':''}" data-tab="check">출석 체크</button>
+          <button class="tab-btn ${state.tab==='admin'?'active':''}" data-tab="admin">관리자</button>
+        </div>
+      </div>
+    </div>
+    <div class="hallbar">
+      ${state.halls.map(h => `<button class="hall-btn ${state.selectedHallId===h.id?'active':''}" data-hall="${h.id}">${escapeHtml(h.name)}</button>`).join('')}
+    </div>
+    <div id="tabContent"></div>
+  `;
+
+  document.getElementById('datePicker').addEventListener('change', async e => {
+    state.selectedDate = e.target.value; await loadAttendanceForDate();
+  });
+  app.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => { state.tab = btn.dataset.tab; render(); }));
+  app.querySelectorAll('.hall-btn').forEach(btn => btn.addEventListener('click', () => { state.selectedHallId = btn.dataset.hall; render(); }));
+
+  const content = document.getElementById('tabContent');
+  const dow = dowOf(state.selectedDate);
+  if(state.tab === 'check'){
+    content.innerHTML = renderCheckTab(dow);
+    bindCheckTabEvents();
+  } else if(state.tab === 'admin' && !state.adminUnlocked){
+    content.innerHTML = renderLockScreen();
+    bindLockScreenEvents();
+  } else {
+    content.innerHTML = renderAdminTab(dow);
+    bindAdminTabEvents();
+  }
+}
+
+function renderLockScreen(){
+  return `
+    <div class="card">
+      <div class="lock-wrap">
+        <div class="lock-box">
+          <div class="icon">🔒</div>
+          <h3>관리자 페이지 잠금</h3>
+          <p>비밀번호를 입력하면 좌석표 편집과 학생 명단 관리로 들어갈 수 있어요.</p>
+          <input type="password" id="lockPw" placeholder="비밀번호" />
+          <div class="lock-error">${state.lockError || ''}</div>
+          <button class="btn" id="lockSubmit">확인</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindLockScreenEvents(){
+  const input = document.getElementById('lockPw');
+  const submit = () => tryUnlock(input.value);
+  document.getElementById('lockSubmit').addEventListener('click', submit);
+  input.addEventListener('keydown', e => { if(e.key === 'Enter') submit(); });
+  input.focus();
+}
+
+function renderCheckTab(dow){
+  const hall = getHall(state.selectedHallId);
+  const isSchoolDay = PARTICIPATING_DAYS.includes(dow);
+  const p1 = countStats(hall.id, 'p1');
+  const p2 = countStats(hall.id, 'p2');
+
+  const banner = `
+    <div class="date-banner">
+      <div class="day-label">${escapeHtml(hall.name)} · ${formatDateLabel(state.selectedDate)} <span class="dow">(${dow})</span></div>
+      ${isSchoolDay ? `
+      <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+        <div class="stat-row">
+          <span class="stat-pill">1교시 참여 <b>${p1.total}</b></span>
+          <span class="stat-pill present">출석 <b>${p1.present}</b></span>
+          <span class="stat-pill late">지각 <b>${p1.late}</b></span>
+          <span class="stat-pill absent">결석 <b>${p1.absent}</b></span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-pill">2교시 참여 <b>${p2.total}</b></span>
+          <span class="stat-pill present">출석 <b>${p2.present}</b></span>
+          <span class="stat-pill late">지각 <b>${p2.late}</b></span>
+          <span class="stat-pill absent">결석 <b>${p2.absent}</b></span>
+        </div>
+      </div>` : ''}
+    </div>
+  `;
+
+  if(!isSchoolDay){
+    return `<div class="card">${banner}<div class="no-school"><div class="big">🌙</div>오늘(${dow}요일)은 야자 운영일이 아닙니다.</div></div>`;
+  }
+
+  let cells = '';
+  for(let r=0;r<hall.rows;r++){
+    for(let c=0;c<hall.cols;c++){
+      if(hall.layout[r][c] !== 'seat'){ cells += `<div class="cell aisle-space"></div>`; continue; }
+      const key = seatKey(r,c);
+      const order = seatOrder(hall).find(s => s.key === key);
+      const s = occupantForToday(hall.id, key, dow);
+      if(!s){
+        cells += `<div class="cell"><div class="seat empty-seat"><span>${order.no}번</span>빈자리</div></div>`;
+        continue;
+      }
+      const att = state.attendance[s.id] || { p1:'none', p2:'none' };
+      cells += `<div class="cell"><div class="seat">
+        <div class="seat-top"><span class="seat-no">${order.no}번</span></div>
+        <div class="seat-name">${escapeHtml(s.name)}</div>
+        <div class="period-row">
+          <button class="period-btn ${att.p1}" data-id="${s.id}" data-period="p1"><span class="p-label">1교시</span>${STATUS_LABEL[att.p1]}</button>
+          <button class="period-btn ${att.p2}" data-id="${s.id}" data-period="p2"><span class="p-label">2교시</span>${STATUS_LABEL[att.p2]}</button>
+        </div>
+      </div></div>`;
+    }
+  }
+
+  return `
+    <div class="card">
+      ${banner}
+      <div class="teacher-desk">교탁</div>
+      <div class="seat-grid" style="grid-template-columns: repeat(${hall.cols}, 1fr);">${cells}</div>
+      <div class="hint" style="margin-top:14px;">버튼을 누르면 미체크 → 출석 → 지각 → 결석 순으로 바뀝니다.</div>
+    </div>
+  `;
+}
+
+function bindCheckTabEvents(){
+  document.querySelectorAll('.period-btn').forEach(btn => btn.addEventListener('click', () => setStatus(btn.dataset.id, btn.dataset.period)));
+}
+
+function renderAdminTab(dow){
+  const hall = getHall(state.selectedHallId);
+
+  // editor grid
+  let editorCells = '';
+  for(let r=0;r<hall.rows;r++){
+    for(let c=0;c<hall.cols;c++){
+      const type = hall.layout[r][c];
+      if(type !== 'seat'){
+        editorCells += `<div class="editor-cell" data-r="${r}" data-c="${c}">통로<br/>(클릭 시 좌석)</div>`;
+        continue;
+      }
+      const key = seatKey(r,c);
+      const order = seatOrder(hall).find(s => s.key === key);
+      const occ = occupantsAtSeat(hall.id, key);
+      if(occ.length > 0){
+        const names = occ.map(o => `${o.days.join('')} ${escapeHtml(o.name)}`).join('<br/>');
+        editorCells += `<div class="editor-cell seat-taken" data-r="${r}" data-c="${c}"><span class="en">${order.no}번</span>${names}</div>`;
+      } else {
+        editorCells += `<div class="editor-cell seat-empty" data-r="${r}" data-c="${c}"><span class="en">${order.no}번</span>빈 좌석</div>`;
+      }
+    }
+  }
+
+  // student add form: list every seat, with a note of who already uses it and which days
+  function seatOptionLabel(hallId, key, excludeId){
+    const occ = occupantsAtSeat(hallId, key, excludeId);
+    if(occ.length === 0) return '';
+    return ' · ' + occ.map(o => `${o.days.join('')}:${o.name}`).join(', ');
+  }
+  const allSeats = seatOrder(hall);
+  const seatOptions = allSeats.map(s => `<option value="${s.key}">${s.no}번${seatOptionLabel(hall.id, s.key)}</option>`).join('');
+
+  // roster table
+  let rosterStudents = state.students;
+  if(state.listFilter !== 'all') rosterStudents = rosterStudents.filter(s => s.hallId === state.listFilter);
+  const sorted = [...rosterStudents].sort((a,b) => {
+    if(a.hallId !== b.hallId) return a.hallId.localeCompare(b.hallId);
+    return a.seatKey.localeCompare(b.seatKey);
+  });
+
+  const rows = sorted.map(s => {
+    const h = getHall(s.hallId);
+    const order = seatOrder(h).find(o => o.key === s.seatKey);
+    if(state.editingId === s.id){
+      const editHallSeats = seatOrder(getHall(s.hallId));
+      const seatOpts = editHallSeats
+        .map(o => `<option value="${o.key}" ${o.key===s.seatKey?'selected':''}>${o.no}번${seatOptionLabel(s.hallId, o.key, s.id)}</option>`).join('');
+      return `
+        <tr>
+          <td colspan="6">
+            <div class="form-row">
+              <input type="text" id="edit-name" value="${escapeHtml(s.name)}" placeholder="이름" />
+              <select id="edit-hall">
+                ${state.halls.map(hh => `<option value="${hh.id}" ${hh.id===s.hallId?'selected':''}>${escapeHtml(hh.name)}</option>`).join('')}
+              </select>
+              <select id="edit-seat">${seatOpts}</select>
+              <div class="day-check-group">
+                ${PARTICIPATING_DAYS.map(d => `<button type="button" class="day-check ${s.days.includes(d)?'on':''}" data-day="${d}" data-edit-day>${d}</button>`).join('')}
+              </div>
+              <button class="btn small" id="edit-save" data-id="${s.id}">저장</button>
+              <button class="btn ghost small" id="edit-cancel">취소</button>
+            </div>
+          </td>
+        </tr>`;
+    }
+    const att = state.attendance[s.id] || { p1:'none', p2:'none' };
+    const attends = s.days.includes(dow);
+    return `
+      <tr>
+        <td>${escapeHtml(s.name)}</td>
+        <td><span class="badge hall">${escapeHtml(h.name)}</span></td>
+        <td>${order ? order.no + '번' : '-'}</td>
+        <td>${s.days.join(', ')}</td>
+        <td>${attends ? `<span class="badge ${att.p1}">1교시 ${STATUS_LABEL[att.p1]}</span> <span class="badge ${att.p2}">2교시 ${STATUS_LABEL[att.p2]}</span>` : `<span class="badge">비참여일</span>`}</td>
+        <td>
+          <div class="row-actions">
+            <button class="btn ghost small" data-edit="${s.id}">수정</button>
+            <button class="btn danger small" data-delete="${s.id}">삭제</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  return `
+    <div class="card">
+      <div class="section-title">관리자 비밀번호 변경</div>
+      <div class="pw-change-row">
+        <input type="password" id="pwCurrent" placeholder="현재 비밀번호" />
+        <input type="password" id="pwNext" placeholder="새 비밀번호" />
+        <input type="password" id="pwConfirm" placeholder="새 비밀번호 확인" />
+        <button class="btn ghost small" id="pwSaveBtn">변경</button>
+      </div>
+      <div class="pw-msg" id="pwMsg"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">${escapeHtml(hall.name)} 좌석표 편집</div>
+      <div class="settings-line">
+        <label>행 수</label><input type="number" id="rowsInput" value="${hall.rows}" min="1" style="width:70px;" />
+        <label>열 수</label><input type="number" id="colsInput" value="${hall.cols}" min="1" style="width:70px;" />
+        <button class="btn ghost small" id="applyGrid">격자 적용</button>
+      </div>
+      <div class="legend">
+        <span><i style="background:#FAFBFC;border:1.5px dashed var(--line);"></i>통로 (클릭 시 좌석으로)</span>
+        <span><i style="background:#fff;border:1.5px solid var(--line);"></i>빈 좌석 (클릭 시 통로로)</span>
+        <span><i style="background:var(--accent-soft);border:1.5px solid var(--accent);"></i>학생 배정됨 (클릭 불가)</span>
+      </div>
+      <div class="editor-grid" style="grid-template-columns: repeat(${hall.cols}, 1fr);">${editorCells}</div>
+      <div class="hint">칸을 클릭하면 좌석 ↔ 통로 상태가 바뀝니다. 학생이 배정된 좌석은 먼저 아래 명단에서 자리를 옮기거나 삭제해야 통로로 바뀝니다.</div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">학생 추가</div>
+      <div class="form-row">
+        <input type="text" id="newName" placeholder="이름" />
+        <select id="newHall">${state.halls.map(hh => `<option value="${hh.id}" ${hh.id===hall.id?'selected':''}>${escapeHtml(hh.name)}</option>`).join('')}</select>
+        <select id="newSeat">${seatOptions || '<option value="">좌석 없음</option>'}</select>
+        <div class="day-check-group" id="newDays">${PARTICIPATING_DAYS.map(d => `<button type="button" class="day-check" data-day="${d}">${d}</button>`).join('')}</div>
+        <button class="btn" id="addBtn" ${allSeats.length===0?'disabled':''}>추가</button>
+      </div>
+      <div class="hint">같은 좌석도 요일이 겹치지 않으면 여러 학생에게 배정할 수 있어요. (예: 월·수는 김학생, 화·목·금은 박학생)</div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">학생 명단 · ${formatDateLabel(state.selectedDate)} (${dow}) 현황</div>
+      <div class="filter-row">
+        <button class="tab-btn ${state.listFilter==='all'?'active':''}" style="background:${state.listFilter==='all'?'var(--accent)':'#fff'}; color:${state.listFilter==='all'?'#fff':'var(--ink-soft)'}; border:1px solid var(--line);" data-filter="all">전체</button>
+        ${state.halls.map(hh => `<button class="tab-btn ${state.listFilter===hh.id?'active':''}" style="background:${state.listFilter===hh.id?'var(--accent)':'#fff'}; color:${state.listFilter===hh.id?'#fff':'var(--ink-soft)'}; border:1px solid var(--line);" data-filter="${hh.id}">${escapeHtml(hh.name)}</button>`).join('')}
+      </div>
+      ${sorted.length === 0 ? `<div class="empty-state">등록된 학생이 없습니다.</div>` : `
+      <table>
+        <thead><tr><th>이름</th><th>서당</th><th>좌석</th><th>참여 요일</th><th>오늘 상태</th><th>관리</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`}
+    </div>
+  `;
+}
+
+function bindAdminTabEvents(){
+  const hall = getHall(state.selectedHallId);
+
+  document.getElementById('pwSaveBtn').addEventListener('click', () => {
+    changeAdminPassword(
+      document.getElementById('pwCurrent').value,
+      document.getElementById('pwNext').value,
+      document.getElementById('pwConfirm').value
+    );
+  });
+
+  document.getElementById('applyGrid').addEventListener('click', () => {
+    applyGridSize(hall.id, document.getElementById('rowsInput').value, document.getElementById('colsInput').value);
+  });
+
+  document.querySelectorAll('.editor-cell').forEach(cell => {
+    cell.addEventListener('click', () => toggleEditorCell(hall.id, Number(cell.dataset.r), Number(cell.dataset.c)));
+  });
+
+  document.getElementById('newHall').addEventListener('change', () => { state.selectedHallId = document.getElementById('newHall').value; render(); });
+
+  const newDaysWrap = document.getElementById('newDays');
+  let selectedNewDays = [];
+  newDaysWrap.querySelectorAll('.day-check').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const d = btn.dataset.day;
+      if(selectedNewDays.includes(d)){ selectedNewDays = selectedNewDays.filter(x=>x!==d); btn.classList.remove('on'); }
+      else { selectedNewDays.push(d); btn.classList.add('on'); }
+    });
+  });
+
+  const addBtn = document.getElementById('addBtn');
+  if(addBtn) addBtn.addEventListener('click', () => {
+    const name = document.getElementById('newName').value;
+    const hallId = document.getElementById('newHall').value;
+    const key = document.getElementById('newSeat').value;
+    addStudent(name, hallId, key, [...selectedNewDays]);
+  });
+
+  document.querySelectorAll('[data-filter]').forEach(btn => btn.addEventListener('click', () => { state.listFilter = btn.dataset.filter; render(); }));
+  document.querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', () => deleteStudent(btn.dataset.delete)));
+  document.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => { state.editingId = btn.dataset.edit; render(); }));
+
+  const cancelBtn = document.getElementById('edit-cancel');
+  if(cancelBtn) cancelBtn.addEventListener('click', () => { state.editingId = null; render(); });
+
+  const saveBtn = document.getElementById('edit-save');
+  if(saveBtn){
+    const editingStudent = state.students.find(s => s.id === state.editingId);
+    let editDays = editingStudent.days.slice();
+    document.querySelectorAll('[data-edit-day]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const d = btn.dataset.day;
+        if(editDays.includes(d)){ editDays = editDays.filter(x=>x!==d); btn.classList.remove('on'); }
+        else { editDays.push(d); btn.classList.add('on'); }
+      });
+    });
+    document.getElementById('edit-hall').addEventListener('change', (e) => {
+      // refresh seat options for newly chosen hall
+      const newHallId = e.target.value;
+      const newHall = getHall(newHallId);
+      const opts = seatOrder(newHall).map(o => {
+        const occ = occupantsAtSeat(newHallId, o.key, editingStudent.id);
+        const label = occ.length ? ' · ' + occ.map(x => `${x.days.join('')}:${x.name}`).join(', ') : '';
+        return `<option value="${o.key}">${o.no}번${label}</option>`;
+      }).join('');
+      document.getElementById('edit-seat').innerHTML = opts || '<option value="">좌석 없음</option>';
+    });
+    saveBtn.addEventListener('click', () => {
+      const name = document.getElementById('edit-name').value;
+      const hallId = document.getElementById('edit-hall').value;
+      const key = document.getElementById('edit-seat').value;
+      saveEdit(saveBtn.dataset.id, name, hallId, key, editDays);
+    });
+  }
+}
+
+loadAll();
+</script>
+</body>
+</html>
