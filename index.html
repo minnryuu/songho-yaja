@@ -256,12 +256,14 @@ async function safeGet(key, fallback){
     const doc = await db.collection('appdata').doc(key).get();
     if(!doc.exists) return fallback;
     const data = doc.data();
-    return (data && 'value' in data) ? data.value : fallback;
+    if(data && typeof data.json === 'string') return JSON.parse(data.json);
+    if(data && 'value' in data) return data.value; // 이전 저장 형식과의 호환
+    return fallback;
   }catch(e){ console.error('불러오기 실패', key, e); return fallback; }
 }
 async function safeSet(key, value){
   if(!firebaseReady) return;
-  try{ await db.collection('appdata').doc(key).set({ value }); }
+  try{ await db.collection('appdata').doc(key).set({ json: JSON.stringify(value) }); }
   catch(e){
     console.error('저장 실패', key, e);
     alert('저장에 실패했어요.\n\n오류 내용: ' + (e && e.message ? e.message : e) + '\n(코드: ' + (e && e.code ? e.code : '없음') + ')');
