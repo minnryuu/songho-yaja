@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>야자 출결 체크</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --bg: #EEF1F4;
@@ -216,39 +218,78 @@ let state = {
   adminPassword: 'songhoyaja26',
   adminUnlocked: false,
   lockError: '',
+  setupNeeded: false,
 };
 
 function uid(){ return 's_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function seatKey(r,c){ return 'r'+r+'c'+c; }
 
-async function safeGet(key, fallback, shared){
+// ===== Firebase 설정 =====
+// 아래 값을 본인 Firebase 프로젝트의 설정값으로 바꿔주세요.
+// Firebase 콘솔 > 프로젝트 설정 > 일반 > 내 앱 > SDK 설정 및 구성 에서 확인할 수 있어요.
+const firebaseConfig = {
+  apiKey: "AIzaSyCjw5JHC0qho271kRRt4pOKuxUkp2hKVt4",
+  authDomain: "songho-yaja.firebaseapp.com",
+  projectId: "songho-yaja",
+  storageBucket: "songho-yaja.firebasestorage.app",
+  messagingSenderId: "621284406040",
+  appId: "1:621284406040:web:30874cebff243ad0dfe46d"
+};
+
+let db = null;
+let firebaseReady = false;
+try{
+  if(firebaseConfig.apiKey !== "YOUR_API_KEY"){
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    firebaseReady = true;
+  }
+}catch(e){ console.error('Firebase 초기화 실패', e); }
+
+async function safeGet(key, fallback){
+  if(!firebaseReady) return fallback;
   try{
-    const res = await window.storage.get(key, shared);
-    if(!res || res.value === undefined || res.value === null) return fallback;
-    return JSON.parse(res.value);
-  }catch(e){ return fallback; }
+    const doc = await db.collection('appdata').doc(key).get();
+    if(!doc.exists) return fallback;
+    const data = doc.data();
+    return (data && 'value' in data) ? data.value : fallback;
+  }catch(e){ console.error('불러오기 실패', key, e); return fallback; }
 }
-async function safeSet(key, value, shared){
-  try{ await window.storage.set(key, JSON.stringify(value), shared); }
-  catch(e){ console.error('저장 실패', key, e); }
+async function safeSet(key, value){
+  if(!firebaseReady) return;
+  try{ await db.collection('appdata').doc(key).set({ value }); }
+  catch(e){ console.error('저장 실패', key, e); alert('저장에 실패했어요. 인터넷 연결과 Firebase 설정을 확인해 주세요.'); }
 }
 
 async function loadAll(){
-  const loadedHalls = await safeGet('halls', null, true);
+  if(!firebaseReady){
+    state.loaded = true;
+    state.setupNeeded = true;
+    render();
+    return;
+  }
+  const loadedHalls = await safeGet('halls', null);
   if(loadedHalls) state.halls = loadedHalls;
-  state.students = await safeGet('students', [], true);
-  state.attendance = await safeGet('attendance:' + state.selectedDate, {}, true);
-  const loadedPw = await safeGet('adminPassword', null, true);
+  state.students = await safeGet('students', []);
+  state.attendance = await safeGet('attendance:' + state.selectedDate, {});
+  const loadedPw = await safeGet('adminPassword', null);
   if(loadedPw) state.adminPassword = loadedPw;
   state.loaded = true;
   render();
   if(!loadedHalls) await saveHalls();
-  if(!loadedPw) await safeSet('adminPassword', state.adminPassword, true);
+  if(!loadedPw) await safeSet('adminPassword', state.adminPassword);
 }
-async function saveHalls(){ await safeSet('halls', state.halls, true); }
-async function saveStudents(){ await safeSet('students', state.students, true); }
+async function saveHalls(){ await safeSet('halls', state.halls); }
+async function saveStudents(){ await safeSet('students', state.students); }
 async function loadAttendanceForDate(){
-  state.attendance = await safeGet('attendance:' + state.selectedDate, {}, true);
+  state.attendance = await safeGet('attendance:' + state.selectedDate, {});
+  render();
+}
+async function refreshAll(){
+  if(!firebaseReady) return;
+  state.halls = await safeGet('halls', state.halls);
+  state.students = await safeGet('students', []);
+  state.attendance = await safeGet('attendance:' + state.selectedDate, {});
   render();
 }
 
@@ -277,7 +318,7 @@ async function changeAdminPassword(current, next, confirmNext){
     return;
   }
   state.adminPassword = next;
-  await safeSet('adminPassword', state.adminPassword, true);
+  await safeSet('adminPassword', state.adminPassword);
   if(msgEl){ msgEl.textContent = '비밀번호가 변경되었습니다.'; msgEl.className = 'pw-msg ok'; }
   document.getElementById('pwCurrent').value = '';
   document.getElementById('pwNext').value = '';
@@ -327,7 +368,7 @@ async function setStatus(studentId, period){
   if(!state.attendance[studentId]) state.attendance[studentId] = { p1:'none', p2:'none' };
   state.attendance[studentId][period] = next;
   render();
-  await safeSet('attendance:' + state.selectedDate, state.attendance, true);
+  await safeSet('attendance:' + state.selectedDate, state.attendance);
 }
 
 async function toggleEditorCell(hallId, r, c){
@@ -429,6 +470,22 @@ function render(){
   const app = document.getElementById('app');
   if(!state.loaded){ app.innerHTML = '<div class="loading">불러오는 중...</div>'; return; }
 
+  if(state.setupNeeded){
+    app.innerHTML = `
+      <div class="app" style="padding:0;">
+        <div class="card" style="max-width:520px; margin:60px auto;">
+          <div class="section-title">⚙️ Firebase 설정이 필요해요</div>
+          <p style="font-size:13.5px; color:var(--ink-soft); line-height:1.7;">
+            여러 기기에서 데이터를 함께 쓰려면 무료 Firebase 프로젝트를 하나 만들고,
+            코드 상단의 <code>firebaseConfig</code> 값을 본인 프로젝트 값으로 바꿔야 해요.<br/><br/>
+            자세한 방법은 안내 문서를 참고해 주세요.
+          </p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   app.innerHTML = `
     <div class="topbar">
       <div class="brand">
@@ -437,6 +494,7 @@ function render(){
       </div>
       <div class="controls">
         <input type="date" id="datePicker" value="${state.selectedDate}" />
+        <button class="btn ghost small" id="refreshBtn" title="다른 기기에서 바뀐 내용 다시 불러오기">↻ 새로고침</button>
         <div class="tabs">
           <button class="tab-btn ${state.tab==='check'?'active':''}" data-tab="check">출석 체크</button>
           <button class="tab-btn ${state.tab==='admin'?'active':''}" data-tab="admin">관리자</button>
@@ -452,6 +510,7 @@ function render(){
   document.getElementById('datePicker').addEventListener('change', async e => {
     state.selectedDate = e.target.value; await loadAttendanceForDate();
   });
+  document.getElementById('refreshBtn').addEventListener('click', refreshAll);
   app.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => { state.tab = btn.dataset.tab; render(); }));
   app.querySelectorAll('.hall-btn').forEach(btn => btn.addEventListener('click', () => { state.selectedHallId = btn.dataset.hall; render(); }));
 
