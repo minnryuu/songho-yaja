@@ -242,6 +242,10 @@ try{
   if(firebaseConfig.apiKey !== "YOUR_API_KEY"){
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
+    // 일부 학교/공공 네트워크는 Firestore가 기본으로 쓰는 웹소켓 스트리밍을 막아
+    // "연결 실패" 같은 오류를 자주 띄웁니다. 아래 설정으로 연결 방식을 자동 감지해
+    // 롱폴링으로 전환되게 하면 이런 네트워크에서도 훨씬 안정적으로 동작해요.
+    db.settings({ experimentalAutoDetectLongPolling: true, useFetchStreams: false });
     firebaseReady = true;
   }
 }catch(e){ console.error('Firebase 초기화 실패', e); }
@@ -258,7 +262,10 @@ async function safeGet(key, fallback){
 async function safeSet(key, value){
   if(!firebaseReady) return;
   try{ await db.collection('appdata').doc(key).set({ value }); }
-  catch(e){ console.error('저장 실패', key, e); alert('저장에 실패했어요. 인터넷 연결과 Firebase 설정을 확인해 주세요.'); }
+  catch(e){
+    console.error('저장 실패', key, e);
+    alert('저장에 실패했어요.\n\n오류 내용: ' + (e && e.message ? e.message : e) + '\n(코드: ' + (e && e.code ? e.code : '없음') + ')');
+  }
 }
 
 async function loadAll(){
